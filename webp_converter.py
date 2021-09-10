@@ -9,7 +9,7 @@ global path
 # 1. PNG, JPG, GIF 이미지들을 모두 서버에 있는 폴더 그대로 다운로드 받으신 뒤 특정 폴더 안에 넣으세요.
 # 2. 넣으신 뒤 해당 폴더의 경로를 아래에 적어시고 실행해주세요.
 # 3. 각 폴더별로 WEBP 확장자명의 이미지들이 생기신 것을 확인하실 수 있습니다.
-path = "/Users/leewoojin/Desktop/imges"
+path = "/Users/leewoojin/Desktop/web-optimization-tools"
 
 # 이미지 변환이 필요한 이미지 경로 리스트
 # JPG => WEBP
@@ -50,7 +50,7 @@ def scanImageFiles():
 
         for filename in filenames:
             filePath = os.path.join(dirPath, filename)
-            extensionType = filename.split(".").pop();
+            extensionType = filename.split(".").pop()
 
             for extension in __AllowFileExtensionList:
                 if extension == extensionType:
