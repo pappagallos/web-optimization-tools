@@ -207,20 +207,30 @@ def optimizationRule(dirPath, scanStartIndex):
                         propertyList = []
                         for rowIndex2, line2 in enumerate(sourceLines3):
                             if startRowIndex <= rowIndex2 <= endRowIndex:
-                                regLine2 = re.findall(r'''[(\<)]{1}img\b[a-zA-Z0-9\_\.\=\{\}\'\"\/\+ ]*[(\/\>)|(\>)]{1}''', line2)[0]
-                                propertyList.append(re.findall(r'''[a-zA-Z]*\b\=[\{\"\'][a-zA-Z0-9_.+\'\"\/ ]*[\}\"\']''', regLine2))
-                                print("propertyList, ", propertyList)
+                                regLine2 = re.findall(r'''[(\<)]{1}img\b[a-zA-Z0-9\_\.\=\{\}\'\"\/\+\[\]\(\) ]*[(\/\>)|(\>)]{1}''', line2)
+                                if regLine2.__len__() > 0:
+                                    propertyList.append(re.findall(r'''[a-zA-Z]*\b\=[\{\"\'][a-zA-Z0-9_.+\'\"\/\[\]\(\) ]*[\}\"\']''', regLine2[0]))
+                                    print("propertyList, ", propertyList)
 
                         srcContent = ""
+                        webpContent = ""
                         stringifyProperty = []
                         for propertyContents in propertyList:
                             for propertyContent in propertyContents:
                                 if propertyContent.find("src=") == -1:
+                                    print("propertyContent, ", propertyContent)
                                     stringifyProperty.append(propertyContent)
 
                                 elif propertyContent.find("src=") >= 0:
                                     srcContent = re.sub(r'''(src=)''', "", propertyContent)
-                                    webpContent = re.sub(r'''(\.jpg)|(\.jpeg)|(\.png)|(\.JPG)|(\.JPEG)|(\.PNG)''', ".webp", srcContent)
+
+                                    if re.findall(r'''(\.jpg)|(\.jpeg)|(\.JPG)|(\.JPEG)|(\.png)|(\.PNG)''', srcContent).__len__() > 0:
+                                        webpContent = re.sub(r'''(\.jpg)|(\.jpeg)|(\.png)|(\.JPG)|(\.JPEG)|(\.png)|(\.PNG)''', ".webp", srcContent)
+                                    else:
+                                        webpContent = srcContent
+
+                                    print("webpContent, ", webpContent)
+                                    print("srcContent", srcContent)
 
                         stringifyProperty = " ".join(stringifyProperty)
                         print("stringifyProperty, ", stringifyProperty)
