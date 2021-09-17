@@ -4,7 +4,7 @@ import os
 import re
 
 global path
-path = "/Users/leewoojin/Desktop/web-optimization-tools"
+path = "/Users/leewoojin/Desktop/isoi-opti"
 
 global sourceFileList
 sourceFileList = []
@@ -15,7 +15,7 @@ directoryPathList = []
 
 # 변환시킬 파일 확장자명 리스트 정의
 global __AllowFileExtensionList
-__AllowFileExtensionList = ["js", "JS"]
+__AllowFileExtensionList = ["js", "JS", "txt", "TXT"]
 
 
 def scanDirectory(dirPath):
@@ -42,7 +42,8 @@ def scanSourceFiles():
         for filename in filenames:
             filePath = os.path.join(dirPath, filename)
 
-            if filename.find(".config") >= 0 or filename.find("DS_Store") >= 0 or filename.find("_app.js") >= 0 or filename.find("_document.js") >= 0:
+            if filename.find(".config") >= 0 or filename.find("DS_Store") >= 0 or filename.find(
+                    "_app.js") >= 0 or filename.find("_document.js") >= 0:
                 continue
             else:
                 extensionType = filename.split(".").pop()
@@ -71,40 +72,107 @@ def optimizationRule(dirPath, scanStartIndex):
             break
 
     if isValid:
-        sourceFile = open(dirPath, "r")
+        # 1. <img * /> 태그 앞 뒤로 다른 태그가 있는지 검사하고 있으면 \n<img * />\n 으로 수정해준다.
+        sourceStore = []
+        sourceFile = open(dirPath, "r+")
         sourceLines = sourceFile.readlines()
 
         for line in sourceLines:
+            # [1] 한 줄을 읽어와서 스페이스바를 기준으로 자른다.
+            splitLine = line.split(" ")
+
+            # 스페이스바 수만큼 공백이 추가될 변수
+            emptyLine = ""
+            # 탭을 나타내는 공백 변수
+            tabLine = "    "
+
+            # [2] 소스 라인에 공백 라인이 어느정도 있는지 가늠하기 위해 반복문을 돌려 검사
+            emptyCounter = 0
+            for index, value in enumerate(splitLine):
+                # <img 태그가 나타날 때까지 반복문을 돌리는데 나타나면 emptyCounter 에 (index - 1) 한 수를 초기화, 그리고 탈출
+                if value.find("<img") >= 0:
+                    emptyCounter = index - 1
+                    break
+
+            # [3] 위에서 구한 emptyCounter 를 이용해서 emptyCounter 수 만큼 공백을 추가하여 수정할 때도 기존 소스의 공백 라인을 유지시켜준다.
+            if line.find("<img") >= 0:
+                for i in range(emptyCounter):
+                    emptyLine += " "
+
+            # [4] 위에서 splitLine 해서 나눈 리스트들을 반복문을 돌려 하나씩 <img 태그가 존재하는지 검사하여
+            # <img 태그가 0번째 인덱스가 아닌 1 이상의 인덱스에 존재한다면 앞 라인에 다른 태그가 존재한다는 의미이므로 \n<img 로 변경해준다.
+            for index, value in enumerate(splitLine):
+                localIndex = value.find("<img")
+
+                # 이 부분이 \n<img 로 변경해주는 부분, 변경하고 반복문 탈출
+                if localIndex >= 1:
+                    splitLine[index] = re.sub(r"\<img", "\n" + emptyLine + tabLine + "<img", value)
+                    break
+
+            # [5] 다시 Join 하여 리스트들을 문자열로 합치고 newEndSourceLine 변수에 초기화한다.
+            newStartSourceLine = " ".join(splitLine)
+            newEndSourceLine = newStartSourceLine
+
+            # [6] newStartSourceLine 변수의 데이터에 만약 /> 가 존재한다면 /> 의 시작 인덱스로부터 +3 을 해줘서
+            # newStartSourceLine의 총 글자 개수 보다 적다면(/> 의 마지막 인덱스 위치를 의미) <img * /> 앞에 또 다른 태그가 있다는 의미이므로 <img * />\n 을 해준다.
+            if newStartSourceLine.rfind("/>") + 3 < newStartSourceLine.__len__():
+                newEndSourceLine = re.sub(r"\/\>", "/>\n" + emptyLine, newStartSourceLine)
+
+            # [7] 그리고 파일에 추가하기 위해 기존의 라인에 현재 가공한 데이터를 추가해준다.
+            sourceStore = sourceStore + [newEndSourceLine]
+
+        sourceFile.seek(0)
+        sourceFile.writelines(sourceStore)
+        sourceFile.truncate()
+        sourceFile.close()
+
+        # 2. 이제 img 태그가 시작하고 끝나는 start, end의 row 인덱스와 <img 가 시작하는 글자 인덱스, /> 끝나는 글자 인덱스를 구한다.
+        sourceFile2 = open(dirPath, "r")
+        sourceLines2 = sourceFile2.readlines()
+
+        for line in sourceLines2:
+            # regLine = re.findall(r'''[(\<)]{1}img\b[a-zA-Z0-9\_\.\=\{\}\'\"\/\+ ]*[(\/\>)|(\>)]{1}''', line)
+            # print(regLine)
+
             if rowCounter >= scanStartIndex:
-                # <img의 시작 인덱스를 구한다.
+                # [1] <img의 시작 인덱스를 구한다.
                 if startIndex == -1:
                     startIndex = line.find("<img")
 
-                    # 만약 없으면 다음 라인을 검사한다.
+                    # [2] 만약 없으면 다음 라인을 검사한다.
                     if startIndex == -1:
                         rowCounter += 1
+                        sourceStore = sourceStore + [line]
+
                         continue
                     else:
-                        # 만약 있으면 rowCounter의 값을 startRowIndex에 초기화 한다.
+                        # [3] 만약 있으면 rowCounter의 값을 startRowIndex에 초기화 한다.
                         startRowIndex = rowCounter
 
-                # <img 의 끝나는 부분인 />의 시작 인덱스를 구한다.
+                # [4] <img 의 끝나는 부분인 /> 혹은 > 의 시작 인덱스를 구한다.
                 if endIndex == -1:
                     endIndex = line.find("/>")
+                    if endIndex == -1:
+                        endIndex = line.find(">")
 
-                    # 만약 없으면 다음 라인으로 이동하여 다시 /> 가 있는지 검사한다.
+                    # [5] 만약 없으면 다음 라인으로 이동하여 다시 /> 혹은 > 가 있는지 검사한다.
                     if endIndex == -1:
                         rowCounter += 1
+                        sourceStore = sourceStore + [line]
+
                         continue
                     else:
+                        # [6] 만약 있으면 endIndex 를 /> 이 두개의 글자 수를 포함한 2를 더한 rowCounter의 값을 endRowIndex에 초기화 한다.
                         endIndex += 2
                         endRowIndex = rowCounter
+                        print("endRowIndex, ", endRowIndex)
 
             else:
                 rowCounter += 1
 
-        sourceFile.close()
+        sourceFile2.close()
 
+        # 3. 재귀 함수 탈출용 로직
         if startRowIndex >= 0 and endRowIndex >= 0:
             print(f"startRowIndex : {startRowIndex} / endRowIndex : {endRowIndex}")
         else:
@@ -116,10 +184,10 @@ def optimizationRule(dirPath, scanStartIndex):
         if startIndex != -1 and endIndex != -1 and startRowIndex != -1 and endRowIndex != -1:
             # 이제 webP 크로스 브라우징을 위해 적용할 이미지 소스를 optimizationRule가 직접 반영해준다.
             sourceStore = []
-            sourceFile = open(dirPath, "r+")
-            sourceLines = sourceFile.readlines()
+            sourceFile3 = open(dirPath, "r+")
+            sourceLines3 = sourceFile3.readlines()
 
-            for rowIndex, line in enumerate(sourceLines):
+            for rowIndex, line in enumerate(sourceLines3):
                 if startRowIndex <= rowIndex <= endRowIndex:
                     # 파일 확장자 구하기
                     extension = "jpg"
@@ -136,37 +204,31 @@ def optimizationRule(dirPath, scanStartIndex):
                         emptyLine += " "
 
                     if not isConvert:
-                        srcIndex = -1
-                        altIndex = -1
-                        reg = "/(src=)|(alt=)|(\")|(\')/"
+                        propertyList = []
+                        for rowIndex2, line2 in enumerate(sourceLines3):
+                            if startRowIndex <= rowIndex2 <= endRowIndex:
+                                regLine2 = re.findall(r'''[(\<)]{1}img\b[a-zA-Z0-9\_\.\=\{\}\'\"\/\+ ]*[(\/\>)|(\>)]{1}''', line2)[0]
+                                propertyList.append(re.findall(r'''[a-zA-Z]*\b\=[\{\"\'][a-zA-Z0-9_.+\'\"\/ ]*[\}\"\']''', regLine2))
+                                print("propertyList, ", propertyList)
 
-                        lineArr = line.split(" ")
-                        print(lineArr)
+                        srcContent = ""
+                        stringifyProperty = []
+                        for propertyContents in propertyList:
+                            for propertyContent in propertyContents:
+                                if propertyContent.find("src=") == -1:
+                                    stringifyProperty.append(propertyContent)
 
-                        scanIndex = 0
-                        while srcIndex == -1 and altIndex == -1:
-                            for lineItem in lineArr:
-                                if lineItem.find("src=") >= 0:
-                                    srcIndex = scanIndex
-                                elif lineItem.find("alt=") >= 0:
-                                    altIndex = scanIndex
+                                elif propertyContent.find("src=") >= 0:
+                                    srcContent = re.sub(r'''(src=)''', "", propertyContent)
+                                    webpContent = re.sub(r'''(\.jpg)|(\.jpeg)|(\.png)|(\.JPG)|(\.JPEG)|(\.PNG)''', ".webp", srcContent)
 
-                                scanIndex += 1
+                        stringifyProperty = " ".join(stringifyProperty)
+                        print("stringifyProperty, ", stringifyProperty)
 
-                        print("srcIndex", srcIndex)
-                        print("altIndex", altIndex)
-
-                        textSrc = re.sub(r"src=", "", lineArr[srcIndex])
-                        textAlt = re.sub(r"alt=|\"|\'", "", lineArr[altIndex])
-
-                        print("textSrc : ", textSrc)
-                        print("textAlt : ", textAlt)
-
-                        newSourceLine = f"\n{emptyLine}{{/* webP 확장자 크로스 브라우징 지원 소스 */}}\n" \
-                                        f"{emptyLine}<picture>\n" \
-                                        f"{emptyLine + tabLine}<source srcSet={textSrc} type='image/webp' />\n" \
-                                        f"{emptyLine + tabLine}<source srcSet={{process.env.NEXT_PUBLIC_CFRONT_V4 + '/mobile/product/line/factman01.{extension}'}} type='image/{extension}' />\n" \
-                                        f"{emptyLine + tabLine}<img src={{process.env.NEXT_PUBLIC_CFRONT_V4 + '/mobile/product/line/factman01.{extension}'}} alt='' />\n" \
+                        newSourceLine = f"\n{emptyLine}<picture>\n" \
+                                        f"{emptyLine + tabLine}<source srcSet={webpContent} {stringifyProperty} type='image/webp' />\n" \
+                                        f"{emptyLine + tabLine}<source srcSet={srcContent} {stringifyProperty} type='image/{extension}' />\n" \
+                                        f"{emptyLine + tabLine}<img src={srcContent} {stringifyProperty} />\n" \
                                         f"{emptyLine}</picture>\n"
                         sourceStore = sourceStore + [newSourceLine]
                         isConvert = True
@@ -175,17 +237,18 @@ def optimizationRule(dirPath, scanStartIndex):
                 else:
                     sourceStore = sourceStore + [line]
 
-            sourceFile.seek(0)
-            sourceFile.writelines(sourceStore)
-            sourceFile.truncate()
+            sourceFile3.seek(0)
+            sourceFile3.writelines(sourceStore)
+            sourceFile3.truncate()
 
-            sourceFile.close()
+            sourceFile3.close()
 
         print(f"dirPath : {dirPath}, {scanStartIndex}")
 
-        optimizationRule(dirPath, startRowIndex + 6)
+        optimizationRule(dirPath, startRowIndex + 5)
 
         return
+
     else:
         print(f"[WARN] {dirPath} is not file. passed optimization.")
 
