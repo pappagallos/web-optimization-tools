@@ -58,6 +58,8 @@ def scanSourceFiles():
 
 
 def optimizationRule(dirPath, scanStartIndex):
+    print("[scanStartIndex] ", scanStartIndex)
+
     isValid = False
     isConvert = False
     rowCounter = 0
@@ -74,7 +76,7 @@ def optimizationRule(dirPath, scanStartIndex):
     if isValid:
         # 1. <img * /> 태그 앞 뒤로 다른 태그가 있는지 검사하고 있으면 \n<img * />\n 으로 수정해준다.
         sourceStore = []
-        sourceFile = open(dirPath, "r+")
+        sourceFile = open(dirPath, "r+", encoding="UTF-8")
         sourceLines = sourceFile.readlines()
 
         for line in sourceLines:
@@ -91,8 +93,12 @@ def optimizationRule(dirPath, scanStartIndex):
             for index, value in enumerate(splitLine):
                 # <img 태그가 나타날 때까지 반복문을 돌리는데 나타나면 emptyCounter 에 (index - 1) 한 수를 초기화, 그리고 탈출
                 if value.find("<img") >= 0:
-                    emptyCounter = index - 1
-                    break
+                    if (index - 1) == -1:
+                        emptyCounter = 0
+                        break
+                    else:
+                        emptyCounter = index - 1
+                        break
 
             # [3] 위에서 구한 emptyCounter 를 이용해서 emptyCounter 수 만큼 공백을 추가하여 수정할 때도 기존 소스의 공백 라인을 유지시켜준다.
             if line.find("<img") >= 0:
@@ -127,13 +133,10 @@ def optimizationRule(dirPath, scanStartIndex):
         sourceFile.close()
 
         # 2. 이제 img 태그가 시작하고 끝나는 start, end의 row 인덱스와 <img 가 시작하는 글자 인덱스, /> 끝나는 글자 인덱스를 구한다.
-        sourceFile2 = open(dirPath, "r")
+        sourceFile2 = open(dirPath, "r", encoding="UTF-8")
         sourceLines2 = sourceFile2.readlines()
 
         for line in sourceLines2:
-            # regLine = re.findall(r'''[(\<)]{1}img\b[a-zA-Z0-9\_\.\=\{\}\'\"\/\+ ]*[(\/\>)|(\>)]{1}''', line)
-            # print(regLine)
-
             if rowCounter >= scanStartIndex:
                 # [1] <img의 시작 인덱스를 구한다.
                 if startIndex == -1:
@@ -148,6 +151,7 @@ def optimizationRule(dirPath, scanStartIndex):
                     else:
                         # [3] 만약 있으면 rowCounter의 값을 startRowIndex에 초기화 한다.
                         startRowIndex = rowCounter
+                        print("startRowIndex", startRowIndex)
 
                 # [4] <img 의 끝나는 부분인 /> 혹은 > 의 시작 인덱스를 구한다.
                 if endIndex == -1:
@@ -184,11 +188,12 @@ def optimizationRule(dirPath, scanStartIndex):
         if startIndex != -1 and endIndex != -1 and startRowIndex != -1 and endRowIndex != -1:
             # 이제 webP 크로스 브라우징을 위해 적용할 이미지 소스를 optimizationRule가 직접 반영해준다.
             sourceStore = []
-            sourceFile3 = open(dirPath, "r+")
+            sourceFile3 = open(dirPath, "r+", encoding="UTF-8")
             sourceLines3 = sourceFile3.readlines()
 
             for rowIndex, line in enumerate(sourceLines3):
-                if startRowIndex <= rowIndex <= endRowIndex:
+                # (커스텀) GIF 파일은 해당 로직을 실행하지 않도록 설정, GIF 파일을 WEBP로 최적화하게 되면 FPS가 많이 줄어들어 클라이언트 측면에서 볼 때 애니메이션이 느린 이미지처럼 보인다.
+                if startRowIndex <= rowIndex <= endRowIndex and line.find(".gif") == -1:
                     # 파일 확장자 구하기
                     extension = "jpg"
                     if line.find(".jpg") >= 0:
@@ -207,9 +212,9 @@ def optimizationRule(dirPath, scanStartIndex):
                         propertyList = []
                         for rowIndex2, line2 in enumerate(sourceLines3):
                             if startRowIndex <= rowIndex2 <= endRowIndex:
-                                regLine2 = re.findall(r'''[(\<)]{1}img\b[a-zA-Z0-9\_\.\=\{\}\'\"\/\+\[\]\(\) ]*[(\/\>)|(\>)]{1}''', line2)
+                                regLine2 = re.findall(r'''[(\<)]{1}img\b[a-zA-Z0-9\_\.\=\{\}\'\"\/\+\[\]\(\)\%\:\- ]*[(\/\>)|(\>)]{1}''', line2)
                                 if regLine2.__len__() > 0:
-                                    propertyList.append(re.findall(r'''[a-zA-Z]*\b\=[\{\"\'][a-zA-Z0-9_.+\'\"\/\[\]\(\) ]*[\}\"\']''', regLine2[0]))
+                                    propertyList.append(re.findall(r'''[a-zA-Z\-]*\b\=[\{\"\'][a-zA-Z0-9_.+\'\"\/\[\]\(\)\%\:\- ]*[\}\"\']''', regLine2[0]))
                                     print("propertyList, ", propertyList)
 
                         srcContent = ""
@@ -255,7 +260,10 @@ def optimizationRule(dirPath, scanStartIndex):
 
         print(f"dirPath : {dirPath}, {scanStartIndex}")
 
-        optimizationRule(dirPath, startRowIndex + 5)
+        if isConvert:
+            optimizationRule(dirPath, startRowIndex + 5)
+        else:
+            optimizationRule(dirPath, startRowIndex + 1)
 
         return
 
