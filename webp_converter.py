@@ -1,6 +1,5 @@
 # JPG, PNG, GIF 이미지들을 한 번에 WEBP로 변환하기 위한 유틸리티
 from PIL import Image
-
 import os
 
 # 변환할 파일 경로 정의
